@@ -1,5 +1,6 @@
 package com.example.quakereport;
 
+import android.text.TextUtils;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 public final class QueryUtils {
 
     public static final String LOG_TAG = QueryUtils.class.getSimpleName();
+    private static final String TAG = "QueryUtils";
     /**
      * Create a private constructor because no one should ever create a {@link QueryUtils} object.
      * This class is only meant to hold static variables and methods, which can be accessed
@@ -28,6 +30,8 @@ public final class QueryUtils {
     }
 
     public static ArrayList<Earthquake> fetchEarthquakeData(String requestUrl) {
+
+        Log.d(TAG, "fetchEarthquakeData: invoked");
         // Create URL object
         URL url = createUrl(requestUrl);
 
@@ -116,6 +120,9 @@ public final class QueryUtils {
      * parsing a JSON response.
      */
     public static ArrayList<Earthquake> extractEarthquakes(String SAMPLE_JSON_RESPONSE) {
+        if (TextUtils.isEmpty(SAMPLE_JSON_RESPONSE)) {
+            return null;
+        }
         // Create an empty ArrayList that we can start adding earthquakes to
         ArrayList<Earthquake> earthquakes = new ArrayList<>();
 
@@ -129,6 +136,7 @@ public final class QueryUtils {
             // Extract the JSONArray associated with the key called "features",
             // which represents a list of features (or earthquakes).
             JSONArray earthquakeArray = baseJsonResponse.getJSONArray("features");
+            System.out.println(earthquakeArray.length());
 
             // For each earthquake in the earthquakeArray, create an {@link Earthquake} object
             for (int i = 0; i < earthquakeArray.length(); i++) {

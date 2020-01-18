@@ -20,14 +20,15 @@ public class EarthquakeAdapter extends ArrayAdapter<Earthquake> {
      * The part of the location string from the USGS service that we use to determine
      * whether or not there is a location offset present ("5km N of Cairo, Egypt").
      */
-    private static final String LOCATION_SEPARATOR = " of ";
 
+    private static final String LOCATION_SEPARATOR = " of ";
     /**
      * Constructs a new {@link EarthquakeAdapter}.
      *
      * @param context of the app
      * @param earthquakes is the list of earthquakes, which is the data source of the adapter
      */
+
     public EarthquakeAdapter(Context context, List<Earthquake> earthquakes) {
         super(context, 0, earthquakes);
     }

@@ -1,59 +1,51 @@
 package com.example.quakereport;
 
+import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
+import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.content.Loader;
 
 import java.util.ArrayList;
-public class EarthquakeActivity extends AppCompatActivity {
 
-    public static final String LOG_TAG = EarthquakeActivity.class.getSimpleName();
-    private static final String SAMPLE_JSON_RESPONSE = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&eventtype=earthquake&orderby=time&minmag=6&limit=10";
+public class EarthquakeActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<ArrayList<Earthquake>> {
+
+    private static final String TAG = "EarthquakeActivity";
+    private static final String USGS_REQUEST_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&orderby=time&minmag=6&limit=10";
+    private static final int EARTHQUAKE_LOADER_ID = 1;
+    private TextView mEmptyStateTextView;
+    private EarthquakeAdapter mAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.earthquake_activity);
 
-        EarthquakeAsyncTask earthquakeAsyncTask = new EarthquakeAsyncTask();
-        earthquakeAsyncTask.execute(SAMPLE_JSON_RESPONSE);
-
-    }
-
-    private void updateUi(ArrayList<Earthquake> earthquakes) {
-
         // Find a reference to the {@link ListView} in the layout
         ListView earthquakeListView = findViewById(R.id.list);
+        mAdapter = new EarthquakeAdapter(this, new ArrayList<Earthquake>());
+        earthquakeListView.setAdapter(mAdapter);
 
-        // Create a new adapter that takes the list of earthquakes as input
-        final EarthquakeAdapter adapter = new EarthquakeAdapter(this, earthquakes);
-
-        // Set the adapter on the {@link ListView}
-        // so the list can be populated in the user interface
-        earthquakeListView.setAdapter(adapter);
-
-        // Set an item click listener on the ListView, which sends an intent to a web browser
-        // to open a website with more information about the selected earthquake.
         earthquakeListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
                 // Find the current earthquake that was clicked on
-                Earthquake currentEarthquake = adapter.getItem(position);
-                Uri earthquakeUri = null;
-                // Convert the String URL into a URI object (to pass into the Intent constructor)
+                Earthquake currentEarthquake = mAdapter.getItem(position);
 
-                try {
-                    earthquakeUri = Uri.parse(currentEarthquake.getUrl());
-                } catch (NullPointerException e) {
-                    Log.e(LOG_TAG, "Error closing input stream", e);
-                }
+                // Convert the String URL into a URI object (to pass into the Intent constructor)
+                Uri earthquakeUri = Uri.parse(currentEarthquake.getUrl());
 
                 // Create a new intent to view the earthquake URI
                 Intent websiteIntent = new Intent(Intent.ACTION_VIEW, earthquakeUri);
@@ -62,43 +54,51 @@ public class EarthquakeActivity extends AppCompatActivity {
                 startActivity(websiteIntent);
             }
         });
+        ConnectivityManager cm =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        boolean isConnected = activeNetwork != null &&
+                activeNetwork.isConnectedOrConnecting();
+        mEmptyStateTextView = findViewById(R.id.empty_view);
+
+        if (isConnected) {
+            getSupportLoaderManager().initLoader(EARTHQUAKE_LOADER_ID, null, this);
+        } else {
+            View loadingIndicator = findViewById(R.id.loading_indicator);
+            loadingIndicator.setVisibility(View.GONE);
+            mEmptyStateTextView.setText(R.string.no_internet_connection);
+        }
     }
 
-    private class EarthquakeAsyncTask extends AsyncTask<String, Void, ArrayList<Earthquake>> {
+    @NonNull
+    @Override
+    public Loader<ArrayList<Earthquake>> onCreateLoader(int id, @Nullable Bundle args) {
+        Log.d(TAG, "onCreateLoader: invoked");
+        return new EarthquakeLoader(this, USGS_REQUEST_URL);
+    }
 
-        /**
-         * This method is invoked (or called) on a background thread, so we can perform
-         * long-running operations like making a network request.
-         * <p>
-         * It is NOT okay to update the UI from a background thread, so we just return an
-         * {@link ArrayList<Earthquake> } object as the result.
-         */
+    @Override
+    public void onLoadFinished(@NonNull Loader<ArrayList<Earthquake>> loader, ArrayList<Earthquake> data) {
+        Log.d(TAG, "onLoadFinished: invoked");
 
-        protected ArrayList<Earthquake> doInBackground(String... urls) {
-            // Don't perform the request if there are no URLs, or the first URL is null.
-            if (urls.length < 1 || urls[0] == null) {
-                return null;
-            }
+        View loadingIndicator = findViewById(R.id.loading_indicator);
+        loadingIndicator.setVisibility(View.GONE);
 
-            ArrayList<Earthquake> earthquakes = QueryUtils.fetchEarthquakeData(urls[0]);
-            return earthquakes;
-        }
-
-        /**
-         * This method is invoked on the main UI thread after the background work has been
-         * completed.
-         * <p>
-         * It IS okay to modify the UI within this method. We take the {@link ArrayList<Earthquake>} object
-         * (which was returned from the doInBackground() method) and update the views on the screen.
-         */
-        protected void onPostExecute(ArrayList<Earthquake> result) {
-            // If there is no result, do nothing.
-            if (result == null) {
-                return;
-            }
-
-            updateUi(result);
+        mEmptyStateTextView.setText(R.string.no_earthquakes);
+        mAdapter.clear();
+        if (data != null && !data.isEmpty()) {
+            mAdapter.addAll(data);
         }
 
     }
+
+
+    @Override
+    public void onLoaderReset(@NonNull Loader<ArrayList<Earthquake>> loader) {
+        Log.d(TAG, "onLoaderReset: invoked");
+        mAdapter.clear();
+    }
+
 }
+
